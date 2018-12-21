@@ -11,10 +11,10 @@ Go语言中数组、字符串和切片三者是密切相关的数据结构。这
 我们先看看数组有哪些定义方式:
 
 ```go
-var a [3]int                    // 定义一个长度为3的int类型数组, 元素全部为0
-var b = [...]int{1, 2, 3}       // 定义一个长度为3的int类型数组, 元素为 1, 2, 3
-var c = [...]int{2: 3, 1: 2}    // 定义一个长度为3的int类型数组, 元素为 0, 2, 3
-var d = [...]int{1, 2, 4: 5, 6} // 定义一个长度为6的int类型数组, 元素为 1, 2, 0, 0, 5, 6
+var a [3]int                    // 定义长度为3的int型数组, 元素全部为0
+var b = [...]int{1, 2, 3}       // 定义长度为3的int型数组, 元素为 1, 2, 3
+var c = [...]int{2: 3, 1: 2}    // 定义长度为3的int型数组, 元素为 0, 2, 3
+var d = [...]int{1, 2, 4: 5, 6} // 定义长度为6的int型数组, 元素为 1, 2, 0, 0, 5, 6
 ```
 
 第一种方式是定义一个数组变量的最基本的方式，数组的长度明确指定，数组中的每个元素都以零值初始化。
@@ -27,9 +27,9 @@ var d = [...]int{1, 2, 4: 5, 6} // 定义一个长度为6的int类型数组, 元
 
 数组的内存结构比较简单。比如下面是一个`[4]int{2,3,5,7}`数组值对应的内存结构：
 
-![](../images/ch1.3-1-array-4int.ditaa.png)
+![](../images/ch1-7-array-4int.ditaa.png)
 
-*图 1.3-1 数组布局*
+*图 1-7 数组布局*
 
 
 Go语言中数组是值语义。一个数组变量即表示整个数组，它并不是隐式的指向第一个元素的指针（比如C语言的数组），而是一个完整的值。当一个数组变量被赋值或者被传递的时候，实际上会复制整个数组。如果数组较大的话，数组的赋值也会有较大的开销。为了避免复制数组带来的开销，可以传递一个指向数组的指针，但是数组指针并不是数组。
@@ -161,15 +161,17 @@ type StringHeader struct {
 
 我们可以看看字符串“Hello, world”本身对应的内存结构：
 
-![](../images/ch1.3-2-string-1.ditaa.png)
+![](../images/ch1-8-string-1.ditaa.png)
 
-*图 1.3-2 字符串布局*
+*图 1-8 字符串布局*
 
 
 分析可以发现，“Hello, world”字符串底层数据和以下数组是完全一致的：
 
 ```go
-var data = [...]byte{'h', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd'}
+var data = [...]byte{
+	'h', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd',
+}
 ```
 
 字符串虽然不是切片，但是支持切片操作，不同位置的切片底层也访问的同一块内存数据（因为字符串是只读的，相同的字符串面值常量通常是对应同一个字符串常量）：
@@ -202,7 +204,8 @@ fmt.Printf("%#v\n", []byte("Hello, 世界"))
 输出的结果是：
 
 ```go
-[]byte{0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0xe4, 0xb8, 0x96, 0xe7, 0x95, 0x8c}
+[]byte{0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0xe4, 0xb8, 0x96, 0xe7, \
+0x95, 0x8c}
 ```
 
 分析可以发现`0xe4, 0xb8, 0x96`对应中文“世”，`0xe7, 0x95, 0x8c`对应中文“界”。我们也可以在字符串面值中直指定UTF8编码后的值（源文件中全部是ASCII码，可以避免出现多字节的字符）。
@@ -214,9 +217,9 @@ fmt.Println("\xe7\x95\x8c") // 打印: 界
 
 下图展示了“Hello, 世界”字符串的内存结构布局:
 
-![](../images/ch1.3-3-string-2.ditaa.png)
+![](../images/ch1-9-string-2.ditaa.png)
 
-*图 1.3-3 字符串布局*
+*图 1-9 字符串布局*
 
 Go语言的字符串中可以存放任意的二进制字节序列，而且即使是UTF8字符序列也可能会遇到坏的编码。如果遇到一个错误的UTF8编码输入，将生成一个特别的Unicode字符‘\uFFFD’，这个字符在不同的软件中的显示效果可能不太一样，在印刷中这个符号通常是一个黑色六角形或钻石形状，里面包含一个白色的问号‘�’。
 
@@ -276,7 +279,7 @@ fmt.Printf("%#v\n", string([]rune{'世', '界'})) // 世界
 ```go
 func forOnString(s string, forBody func(i int, r rune)) {
 	for i := 0; len(s) > 0; {
-    	r, size := utf8.DecodeRuneInString(s)
+		r, size := utf8.DecodeRuneInString(s)
 		forBody(i, r)
 		s = s[size:]
 		i += size
@@ -360,17 +363,17 @@ func runes2string(s []int32) string {
 
 ```go
 type SliceHeader struct {
-    Data uintptr
-    Len  int
-    Cap  int
+	Data uintptr
+	Len  int
+	Cap  int
 }
 ```
 
 可以看出切片的开头部分和Go字符串是一样的，但是切片多了一个`Cap`成员表示切片指向的内存空间的最大容量（对应元素的个数，而不是字节数）。下图是`x := []int{2,3,5,7,11}`和`y := x[1:3]`两个切片对应的内存结构。
 
-![](../images/ch1.3-4-slice-1.ditaa.png)
+![](../images/ch1-10-slice-1.ditaa.png)
 
-*图 1.3-4 切片布局*
+*图 1-10 切片布局*
 
 
 让我们看看切片有哪些定义方式：
@@ -555,8 +558,8 @@ func Filter(s []byte, fn func(x byte) bool) []byte {
 
 ```go
 func FindPhoneNumber(filename string) []byte {
-    b, _ := ioutil.ReadFile(filename)
-    return regexp.MustCompile("[0-9]+").Find(b)
+	b, _ := ioutil.ReadFile(filename)
+	return regexp.MustCompile("[0-9]+").Find(b)
 }
 ```
 
@@ -566,8 +569,8 @@ func FindPhoneNumber(filename string) []byte {
 
 ```go
 func FindPhoneNumber(filename string) []byte {
-    b, _ := ioutil.ReadFile(filename)
-    b = regexp.MustCompile("[0-9]+").Find(b)
+	b, _ := ioutil.ReadFile(filename)
+	b = regexp.MustCompile("[0-9]+").Find(b)
 	return append([]byte{}, b...)
 }
 ```

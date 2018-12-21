@@ -66,7 +66,7 @@ func main() {
 }
 ```
 
-根据Go语言内存模型规范，对于从无缓冲Channel进行的接收，发生在对该Channel进行的发送完成之前。因此，后台线程`<-done`接收操作完成之后，`main`线程的`done <- 1`发生操作才可能完成（从而退出main、退出程序），而此时打印工作已经完成了。
+根据Go语言内存模型规范，对于从无缓冲Channel进行的接收，发生在对该Channel进行的发送完成之前。因此，后台线程`<-done`接收操作完成之后，`main`线程的`done <- 1`发送操作才可能完成（从而退出main、退出程序），而此时打印工作已经完成了。
 
 上面的代码虽然可以正确同步，但是对管道的缓存大小太敏感：如果管道有缓存的话，就无法保证main退出之前后台线程能正常打印了。更好的做法是将管道的发送和接收方向调换一下，这样可以避免同步事件受管道缓存大小的影响：
 
@@ -267,7 +267,9 @@ func (p *Publisher) Close() {
 }
 
 // 发送主题，可以容忍一定的超时
-func (p *Publisher) sendTopic(sub subscriber, topic topicFunc, v interface{}, wg *sync.WaitGroup) {
+func (p *Publisher) sendTopic(
+	sub subscriber, topic topicFunc, v interface{}, wg *sync.WaitGroup,
+) {
 	defer wg.Done()
 	if topic != nil && !topic(v) {
 		return
@@ -343,14 +345,14 @@ func main() {
 var limit = make(chan int, 3)
 
 func main() {
-    for _, w := range work {
-        go func() {
-            limit <- 1
-            w()
-            <-limit
-        }()
-    }
-    select{}
+	for _, w := range work {
+		go func() {
+			limit <- 1
+			w()
+			<-limit
+		}()
+	}
+	select{}
 }
 ```
 
@@ -376,7 +378,7 @@ type gatefs struct {
 func (fs gatefs) Lstat(p string) (os.FileInfo, error) {
 	fs.enter()
 	defer fs.leave()
-	return fs.Lstat(p)
+	return fs.fs.Lstat(p)
 }
 ```
 
@@ -395,13 +397,13 @@ func main() {
 
 	go func() {
 		ch <- searchByBing("golang")
-	}
+	}()
 	go func() {
 		ch <- searchByGoogle("golang")
-	}
+	}()
 	go func() {
 		ch <- searchByBaidu("golang")
-	}
+	}()
 
 	fmt.Println(<-ch)
 }
@@ -416,9 +418,9 @@ func main() {
 
 在“Hello world 的革命”一节中，我们为了演示Newsqueak的并发特性，文中给出了并发版本素数筛的实现。并发版本的素数筛是一个经典的并发例子，通过它我们可以更深刻地理解Go语言的并发特性。“素数筛”的原理如图：
 
-![](../images/ch1.6-1-prime-sieve.png)
+![](../images/ch1-13-prime-sieve.png)
 
-*图 1.6-1 素数筛*
+*图 1-13 素数筛*
 
 
 我们需要先生成最初的`2, 3, 4, ...`自然数序列（不包含开头的0、1）：

@@ -38,9 +38,9 @@ TEXT ·Swap(SB), NOSPLIT, $0
 
 下图是Swap函数几种不同写法的对比关系图：
 
-![](../images/ch3.4-1-func-decl-01.ditaa.png)
+![](../images/ch3-8-func-decl-01.ditaa.png)
 
-*图 3.4-1 函数定义*
+*图 3-8 函数定义*
 
 
 第一种是最完整的写法：函数名部分包含了当前包的路径，同时指明了函数的参数大小为32个字节（对应参数和返回值的4个int类型）。第二种写法则比较简洁，省略了当前包的路径和参数的大小。如果有NOSPLIT标注，会禁止汇编器为汇编函数插入栈分裂的代码。NOSPLIT对应Go语言中的`//go:nosplit`注释。
@@ -82,9 +82,9 @@ TEXT ·Swap(SB), $0-32
 
 下图是Swap函数中参数和返回值在内存中的布局图：
 
-![](../images/ch3.4-2-func-decl-02.ditaa.png)
+![](../images/ch3-9-func-decl-02.ditaa.png)
 
-*图 3.4-2 函数定义*
+*图 3-9 函数定义*
 
 下面的代码演示了如何在汇编函数中使用参数和返回值：
 
@@ -110,14 +110,17 @@ func Foo(a bool, b int16) (c []byte)
 
 函数的参数有不同的类型，而且返回值中含有更复杂的切片类型。我们该如何计算每个参数的位置和总的大小呢？
 
-其实函数参数和返回值的大小以及对齐问题和结构体的大小和成员对齐问题是一致的。我们可以用诡代思路将全部的参数和返回值以同样的顺序放到一个结构体中，将FP伪寄存器作为唯一的一个指针参数，而每个成员的地址也就是对应原来参数的地址。
+其实函数参数和返回值的大小以及对齐问题和结构体的大小和成员对齐问题是一致的，函数的第一个参数和第一个返回值会分别进行一次地址对齐。我们可以用诡代思路将全部的参数和返回值以同样的顺序分别放到两个结构体中，将FP伪寄存器作为唯一的一个指针参数，而每个成员的地址也就是对应原来参数的地址。
 
 用这样的策略可以很容易计算前面的Foo函数的参数和返回值的地址和总大小。为了便于描述我们定义一个`Foo_args_and_returns`临时结构体类型用于诡代原始的参数和返回值：
 
 ```go
-type Foo_args_and_returns struct {
+type Foo_args struct {
 	a bool
 	b int16
+	c []byte
+}
+type Foo_returns struct {
 	c []byte
 }
 ```
@@ -125,24 +128,31 @@ type Foo_args_and_returns struct {
 然后将Foo原来的参数替换为结构体形式，并且只保留唯一的FP作为参数：
 
 ```go
-func Foo(FP *SomeFunc_args_and_returns) {
+func Foo(FP *SomeFunc_args, FP_ret *SomeFunc_returns) {
+	// a = FP + offsetof(&args.a)
 	_ = unsafe.Offsetof(FP.a) + uintptr(FP) // a
-	_ = unsafe.Offsetof(FP.b) + uintptr(FP) // b
-	_ = unsafe.Offsetof(FP.c) + uintptr(FP) // c
+	// b = FP + offsetof(&args.b)
 
-	_ = unsafe.Sizeof(*FP) // argsize
+	// argsize = sizeof(args)
+	argsize = unsafe.Offsetof(FP)
+
+	// c = FP + argsize + offsetof(&return.c)
+	_ = uintptr(FP) + argsize + unsafe.Offsetof(FP_ret.c)
+
+	// framesize = sizeof(args) + sizeof(returns)
+	_ = unsafe.Offsetof(FP) + unsafe.Offsetof(FP_ret)
 
 	return
 }
 ```
 
-代码完全和Foo函数参数的方式类似。唯一的差异是每个函数的偏移量，这有`unsafe.Offsetof`函数自动计算生成。因为Go结构体中的每个成员已经满足了对齐要求，因此采用通用方式得到每个参数的偏移量也是满足对齐要求的。
+代码完全和Foo函数参数的方式类似。唯一的差异是每个函数的偏移量，通过`unsafe.Offsetof`函数自动计算生成。因为Go结构体中的每个成员已经满足了对齐要求，因此采用通用方式得到每个参数的偏移量也是满足对齐要求的。序言注意的是第一个返回值地址需要重新对齐机器字大小的倍数。
 
 Foo函数的参数和返回值的大小和内存布局：
 
-![](../images/ch3.4-3-func-arg-01.ditaa.png)
+![](../images/ch3-10-func-arg-01.ditaa.png)
 
-*图 3.4-3 函数的参数*
+*图 3-10 函数的参数*
 
 
 下面的代码演示了Foo汇编函数参数和返回值的定位：
@@ -157,7 +167,7 @@ TEXT ·Foo(SB), $0
 	RET
 ```
 
-其中a和b参数之间出现了一个字节的空洞，b和c之间出现了4个字节的空洞。出现空洞的原因是要包装每个参数变量地址都要对齐到相应的倍数。
+其中a和b参数之间出现了一个字节的空洞，b和c之间出现了4个字节的空洞。出现空洞的原因是要保证每个参数变量地址都要对齐到相应的倍数。
 
 ## 3.4.4 函数中的局部变量
 
@@ -214,9 +224,9 @@ func Foo() {
 
 下面是Foo函数的局部变量的大小和内存布局：
 
-![](../images/ch3.4-4-func-local-var-01.ditaa.png)
+![](../images/ch3-11-func-local-var-01.ditaa.png)
 
-*图 3.4-4 函数的局部变量*
+*图 3-11 函数的局部变量*
 
 
 从图中可以看出Foo函数局部变量和前一个例子中参数和返回值的内存布局是完全一样的，这也是我们故意设计的结果。但是参数和返回值是通过伪FP寄存器定位的，FP寄存器对应第一个参数的开始地址（第一个参数地址较低），因此每个变量的偏移量是正数。而局部变量是通过伪SP寄存器定位的，而伪SP寄存器对应的是第一个局部变量的结束地址（第一个局部变量地址较大），因此每个局部变量的偏移量都是负数。
@@ -248,9 +258,9 @@ func sum(a, b int) int {
 
 下图展示了三个函数逐级调用时内存中函数参数和返回值的布局：
 
-![](../images/ch3.4-5-func-call-frame-01.ditaa.png)
+![](../images/ch3-12-func-call-frame-01.ditaa.png)
 
-*图 3.4-5 函数帧*
+*图 3-12 函数帧*
 
 
 为了便于理解，我们对真实的内存布局进行了简化。要记住的是调用函数时，被调用函数的参数和返回值内存空间都必须由调用者提供。因此函数的局部变量和为调用其它函数准备的栈空间总和就确定了函数帧的大小。调用其它函数前调用方要选择保存相关寄存器到栈中，并在调用函数返回后选择要恢复的寄存器进行保存。最终通过CALL指令调用函数的过程和调用我们熟悉的调用println函数输出的过程类似。

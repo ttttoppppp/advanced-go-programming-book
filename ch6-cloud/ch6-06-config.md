@@ -18,7 +18,7 @@
 
 除业务线管理之外，很多互联网公司会按照城市来铺展自己的业务。在某个城市未开城之前，理论上所有模块都应该认为带有该城市 id 的数据是脏数据并自动过滤掉。而如果业务开城，在系统中就应该自己把这个新的城市 id 自动加入到白名单中。这样业务流程便可以自动运转。
 
-再举个例子，互联网公司的运营系统中会有各种类型的运营活动，有些运营活动推出后可能出现了超出预期的事件(比如公关危机)，需要紧急将系统下线。这时候会用到一些开关来快速关闭相应的功能。或者快速将想要剔除的活动 id 从白名单中剔除。在 web 章节中的 ab test 一节中，我们也提到，有时需要有这样的系统来告诉我们当前需要放多少流量到相应的功能代码上。我们可以像那一节中，使用远程 rpc 来获知这些信息，但同时，也可以结合分布式配置系统，主动地拉取到这些信息。
+再举个例子，互联网公司的运营系统中会有各种类型的运营活动，有些运营活动推出后可能出现了超出预期的事件(比如公关危机)，需要紧急将系统下线。这时候会用到一些开关来快速关闭相应的功能。或者快速将想要剔除的活动 id 从白名单中剔除。在 Web 章节中的 ab test 一节中，我们也提到，有时需要有这样的系统来告诉我们当前需要放多少流量到相应的功能代码上。我们可以像那一节中，使用远程 rpc 来获知这些信息，但同时，也可以结合分布式配置系统，主动地拉取到这些信息。
 
 ## 6.6.2 使用 etcd 实现配置更新
 
@@ -31,12 +31,12 @@
 ```shell
 etcdctl get /configs/remote_config.json
 {
-    "addr" : "127.0.0.1:1080",
-    "aes_key" : "01B345B7A9ABC00F0123456789ABCDAF",
-    "https" : false,
-    "secret" : "",
-    "private_key_path" : "",
-    "cert_file_path" : ""
+	"addr" : "127.0.0.1:1080",
+	"aes_key" : "01B345B7A9ABC00F0123456789ABCDAF",
+	"https" : false,
+	"secret" : "",
+	"private_key_path" : "",
+	"cert_file_path" : ""
 }
 ```
 
@@ -44,9 +44,9 @@ etcdctl get /configs/remote_config.json
 
 ```go
 cfg := client.Config{
-    Endpoints:               []string{"http://127.0.0.1:2379"},
-    Transport:               client.DefaultTransport,
-    HeaderTimeoutPerRequest: time.Second,
+	Endpoints:               []string{"http://127.0.0.1:2379"},
+	Transport:               client.DefaultTransport,
+	HeaderTimeoutPerRequest: time.Second,
 }
 ```
 
@@ -57,10 +57,10 @@ cfg := client.Config{
 ```go
 resp, err = kapi.Get(context.Background(), "/path/to/your/config", nil)
 if err != nil {
-    log.Fatal(err)
+	log.Fatal(err)
 } else {
-    log.Printf("Get is done. Metadata is %q\n", resp)
-    log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
+	log.Printf("Get is done. Metadata is %q\n", resp)
+	log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
 }
 ```
 
@@ -72,11 +72,11 @@ if err != nil {
 kapi := client.NewKeysAPI(c)
 w := kapi.Watcher("/path/to/your/config", nil)
 go func() {
-    for {
-        resp, err := w.Next(context.Background())
-        log.Println(resp, err)
-        log.Println("new values is ", resp.Node.Value)
-    }
+	for {
+		resp, err := w.Next(context.Background())
+		log.Println(resp, err)
+		log.Println("new values is ", resp.Node.Value)
+	}
 }()
 ```
 
@@ -88,79 +88,79 @@ go func() {
 package main
 
 import (
-    "log"
-    "time"
+	"log"
+	"time"
 
-    "golang.org/x/net/context"
-    "github.com/coreos/etcd/client"
+	"golang.org/x/net/context"
+	"github.com/coreos/etcd/client"
 )
 
 var configPath =  `/configs/remote_config.json`
 var kapi client.KeysAPI
 
 type ConfigStruct struct {
-    Addr           string `json:"addr"`
-    AesKey         string `json:"aes_key"`
-    HTTPS          bool   `json:"https"`
-    Secret         string `json:"secret"`
-    PrivateKeyPath string `json:"private_key_path"`
-    CertFilePath   string `json:"cert_file_path"`
+	Addr           string `json:"addr"`
+	AesKey         string `json:"aes_key"`
+	HTTPS          bool   `json:"https"`
+	Secret         string `json:"secret"`
+	PrivateKeyPath string `json:"private_key_path"`
+	CertFilePath   string `json:"cert_file_path"`
 }
 
 var appConfig ConfigStruct
 
 func init() {
-    cfg := client.Config{
-        Endpoints:               []string{"http://127.0.0.1:2379"},
-        Transport:               client.DefaultTransport,
-        HeaderTimeoutPerRequest: time.Second,
-    }
+	cfg := client.Config{
+		Endpoints:               []string{"http://127.0.0.1:2379"},
+		Transport:               client.DefaultTransport,
+		HeaderTimeoutPerRequest: time.Second,
+	}
 
-    c, err := client.New(cfg)
-    if err != nil {
-        log.Fatal(err)
-    }
-    kapi = client.NewKeysAPI(c)
-    initConfig()
+	c, err := client.New(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	kapi = client.NewKeysAPI(c)
+	initConfig()
 }
 
 func watchAndUpdate() {
-    w := kapi.Watcher(configPath, nil)
-    go func() {
-        // watch 该节点下的每次变化
-        for {
-            resp, err := w.Next(context.Background())
-            if err != nil {
-                log.Fatal(err)
-            }
-            log.Println("new values is ", resp.Node.Value)
+	w := kapi.Watcher(configPath, nil)
+	go func() {
+		// watch 该节点下的每次变化
+		for {
+			resp, err := w.Next(context.Background())
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Println("new values is ", resp.Node.Value)
 
-            err = json.Unmarshal([]byte(resp.Node.Value), &appConfig)
-            if err != nil {
-                log.Fatal(err)
-            }
-        }
-    }()
+			err = json.Unmarshal([]byte(resp.Node.Value), &appConfig)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
 }
 
 func initConfig() {
-    resp, err = kapi.Get(context.Background(), configPath, nil)
-    if err != nil {
-        log.Fatal(err)
-    }
+	resp, err = kapi.Get(context.Background(), configPath, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    err := json.Unmarshal(resp.Node.Value, &appConfig)
-    if err != nil {
-        log.Fatal(err)
-    }
+	err := json.Unmarshal(resp.Node.Value, &appConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func getConfig() ConfigStruct {
-    return appConfig
+	return appConfig
 }
 
 func main() {
-    // init your app
+	// init your app
 }
 ```
 

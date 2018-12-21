@@ -15,14 +15,14 @@ package main
 #include <stdio.h>
 
 void printint(int v) {
-    printf("printint: %d\n", v);
+	printf("printint: %d\n", v);
 }
 */
 import "C"
 
 func main() {
-    v := 42
-    C.printint(C.int(v))
+	v := 42
+	C.printint(C.int(v))
 }
 ```
 
@@ -65,7 +65,7 @@ func main() {
 }
 ```
 
-这段代码是不能正常工作的，因为当前main包引入的`C.cs`变量的类型是当前main包的cgo构造的虚拟的C包下的*char类型（具体点是`*C.char`，更具体点是`*main.C.char`），它和cgo_helper包引入的`*C.char`类型（具体点是`*cgo_helper.C.char`）是不同的。在Go语言中方法是依附于类型存在的，不同Go包中引入的虚拟的C包的类型却是不同的（`main.C`不等`cgo_helper.C`），这导致从它们延伸出来的Go类型也是不同的类型（`*main.C.char`不等`*cgo_helper.C.char`），这最终导致了前面代码不能正常工作。
+这段代码是不能正常工作的，因为当前main包引入的`C.cs`变量的类型是当前`main`包的cgo构造的虚拟的C包下的`*char`类型（具体点是`*C.char`，更具体点是`*main.C.char`），它和cgo_helper包引入的`*C.char`类型（具体点是`*cgo_helper.C.char`）是不同的。在Go语言中方法是依附于类型存在的，不同Go包中引入的虚拟的C包的类型却是不同的（`main.C`不等`cgo_helper.C`），这导致从它们延伸出来的Go类型也是不同的类型（`*main.C.char`不等`*cgo_helper.C.char`），这最终导致了前面代码不能正常工作。
 
 有Go语言使用经验的用户可能会建议参数转型后再传入。但是这个方法似乎也是不可行的，因为`cgo_helper.PrintCString`的参数是它自身包引入的`*C.char`类型，在外部是无法直接获取这个类型的。换言之，一个包如果在公开的接口中直接使用了`*C.char`等类似的虚拟C包的类型，其它的Go包是无法直接使用这些类型的，除非这个Go包同时也提供了`*C.char`类型的构造函数。因为这些诸多因素，如果想在go test环境直接测试这些cgo导出的类型也会有相同的限制。
 
@@ -157,10 +157,10 @@ var buildMode = "debug"
 
 ```
 go build -tags="debug"
-go build -tags="windows,debug"
+go build -tags="windows debug"
 ```
 
-我们可以通过`-tags`命令行参数同时指定多个build标志，它们之间用逗号分割。
+我们可以通过`-tags`命令行参数同时指定多个build标志，它们之间用空格分隔。
 
 当有多个build tag时，我们将多个标志通过逻辑操作的规则来组合使用。比如以下的构建标志表示只有在”linux/386“或”darwin平台下非cgo环境“才进行构建。
 

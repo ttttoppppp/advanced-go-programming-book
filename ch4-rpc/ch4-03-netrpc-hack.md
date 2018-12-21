@@ -7,7 +7,10 @@
 Go语言的RPC库最简单的使用方式是通过`Client.Call`方法进行同步阻塞调用，该方法的实现如下：
 
 ```go
-func (client *Client) Call(serviceMethod string, args interface{}, reply interface{}) error {
+func (client *Client) Call(
+	serviceMethod string, args interface{},
+	reply interface{},
+) error {
 	call := <-client.Go(serviceMethod, args, reply, make(chan *Call, 1)).Done
 	return call.Error
 }
@@ -39,7 +42,11 @@ func doClientWork(client *rpc.Client) {
 执行异步调用的`Client.Go`方法实现如下：
 
 ```go
-func (client *Client) Go(serviceMethod string, args interface{}, reply interface{}, done chan *Call) *Call {
+func (client *Client) Go(
+	serviceMethod string, args interface{},
+	reply interface{},
+	done chan *Call,
+) *Call {
 	call := new(Call)
 	call.ServiceMethod = serviceMethod
 	call.Args = args
@@ -96,8 +103,8 @@ func NewKVStoreService() *KVStoreService {
 
 ```go
 func (p *KVStoreService) Get(key string, value *string) error {
-	p.Lock()
-	defer p.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	if v, ok := p.m[key]; ok {
 		*value = v
@@ -108,8 +115,8 @@ func (p *KVStoreService) Get(key string, value *string) error {
 }
 
 func (p *KVStoreService) Set(kv [2]string, reply *struct{}) error {
-	p.Lock()
-	defer p.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	key, value := kv[0], kv[1]
 
@@ -133,9 +140,9 @@ func (p *KVStoreService) Watch(timeoutSecond int, keyChanged *string) error {
 	id := fmt.Sprintf("watch-%s-%03d", time.Now(), rand.Int())
 	ch := make(chan string, 10) // buffered
 
-	p.Lock()
+	p.mu.Lock()
 	p.filter[id] = func(key string) { ch <- key }
-	p.Unlock()
+	p.mu.Unlock()
 
 	select {
 	case <-time.After(time.Duration(timeoutSecond) * time.Second):
@@ -164,7 +171,10 @@ func doClientWork(client *rpc.Client) {
 		fmt.Println("watch:", keyChanged)
 	} ()
 
-	err := client.Call("KVStoreService.Set", [2]string{"abc", "abc-value"}, new(struct{}))
+	err := client.Call(
+		"KVStoreService.Set", [2]string{"abc", "abc-value"},
+		new(struct{}),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
